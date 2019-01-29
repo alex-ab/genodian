@@ -1,0 +1,68 @@
+                  Locking up your Sculpt VC screen
+
+Using [https://genode.org/download/sculpt - Sculpt] on my working machine as
+day-to-day OS became quite comfortable. Still, some inconvenient stayed. One
+specific one appeared whenever I started for lunch - I wanted to lock the
+screen. Currently, this functionality is missing - because of that I had
+to power down my machine during lunch. Obviously, this is annoying - so I
+started to investigate how to solve the issue.
+
+In principle the solution with nitpicker, our low complexity GUI multiplexer,
+should be straight forward. Just add a domain which is layered above the other
+domains. Whenever a lock screen component - I named it nit_lock - gets
+activated, it will be displayed full-screen above all other domains. Of course,
+you have to explicitly admit it by a policy entry on nitpicker. Additionally,
+any input must go to this component. As soon as you provide your unlock
+passphrase, the nit_lock component is done and give back your screen.
+
+The first prototype of it is already ready and used on a daily basis by me.
+
+The main downside of the approach is that you need to patch the sculpt policy
+and thereby has to build the image by your own.
+
+You are adventurous ? Then read ahead.
+
+If you want to try yourself then you have to follow the instructions for 
+[https://genode.org/documentation/articles/sculpt-vc#Building_the_boot_image - building the boot image] of Sculpt VC
+and you have to incorporate the
+[https://github.com/alex-ab/genode/commit/ac29f796d58e2250b5f29e28bcbfb8a8d8b21f0b - nit_lock policy] patch
+to your checked out branch - before you do the
+! make -C build/x86_64 run/sculpt KERNEL=nova
+call - of course ;-).
+
+As you can see from the nit_lock policy patch, the Sculpt VC launcher start
+entry supports to configure a password.
+
+! repos/gems/run/sculpt/launcher/lock-screen
+!
+! <launcher pkg="alex-ab/pkg/nit_lock/2018-11-27">
+! 	<config password="" transparent="no"/>
+!	<route>
+!		<service name="Nitpicker"> <parent label="lock_screen"/> </service>
+!	</route>
+! </launcher>
+
+You may build the nit_pick package yourself or use my [https://depot.genode.org/alex-ab/pkg/nit_lock - packaged version of nit_lock], as configured in the launcher snippet above.
+
+Regarding the usage:
+
+If you don't provide a password, but actually start the nit_lock component,
+the screen will turn red and it will record all your input as onetime password
+until you hit enter. Afterwards the screen turns to dark or stays transparent,
+depending on your launcher configuration (see above).
+
+To unlock the screen you have to provide the onetime password respectively
+the configured password. There is no input field shown, just start typing.
+
+The developer sources can be found on my
+[https://github.com/alex-ab/genode/commits/sculpt_pkg_nit_lock_18_11 - nit_lock branch]
+for Sculpt VC.
+
+The specific 
+[https://github.com/alex-ab/genode/commit/82abfe764bb7f7bd5d4d1721fc64a1b5385aba3d - nit_lock]
+implementation can also be tested beforehand via the _nit_lock.run_ script. Just check out
+the developer branch and do something similar to
+
+! make -C build/x86_64 KERNEL=nova run/nit_lock
+
+I'm happy about feedback and/or feature requests.
