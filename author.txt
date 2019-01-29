@@ -1,0 +1,10 @@
+Alex is an operating system developer of the Genode project since 2012.
+Typically, his working field focus on low level topics around x86. Current
+working fields comprise kernels like NOVA and seL4,
+bootloader, ACPI driver, platform (PCI) driver, and virtualization.
+Additionally, he maintains the NOVA kernel version as used by the Genode OS
+framework.
+
+*GitHub* [https://github.com/alex-ab - alex-ab]
+
+*Company* [https://www.genode-labs.com - Genode Labs]
