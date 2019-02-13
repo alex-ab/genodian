@@ -1,0 +1,280 @@
+                      Native audio with Sculpt VC
+
+On the way back of FOSDEM 2019 I recognized that I missed to setup audio for
+my Sculpt VC machine. I used it already with Sculpt TC, but somehow I never
+took the time to re-integrate it with Sculpt VC. The next days after the FOSDEM
+trip I consulted my personal audio advisor -Josef- how to setup things.
+
+I document in the following my steps and some improvements in the hope
+they are useful to others. The steps are done on a machine running Sculpt VC
+natively, so it may not work when running Sculpt in a VM.
+
+Genode has a port of a audio driver based on BSD drivers and a self written
+audio mixer. Additionally, a audio player using libav without a GUI exists in
+the Genode world repository. That is all nice, but do I have to build and
+package all myself ? Luckily - no! 
+
+My colleague Josef and others are more music affine then me and provide ready
+to use packages for Sculpt VC. So, lets go. Actually, the missing pieces are
+launcher configurations for the audio driver, audio mixer and the audio
+player.  
+
+For the audio driver I came up (with the help of Josef) with the following
+launcher snippet. 
+
+config/launcher/audio_drv:
+
+!<launcher pkg="cnuke/pkg/bsd_audio_drv/2019-01-13">
+!       <config recording="false">
+!               <mixer field="outputs.master" value="128"/>
+!       </config>
+!       <route>
+!               <service name="Platform"> <parent label="audio"/> </service>
+!               <service name="RM">       <parent/> </service>
+!       </route>
+!</launcher>
+
+I decided to add the mixer already in beginning, so that several audio
+clients can be added later easily.
+
+config/launcher/mixer:
+
+!<launcher pkg="cnuke/pkg/mixer/2019-01-13">
+!       <config>
+!               <default out_volume="100" volume="75"/>
+!       </config>
+!       <route>
+!               <service name="Audio_out"> <child name="audio_drv"/> </service>
+!               <service name="Report"> <parent/> </service>
+!       </route>
+!</launcher>
+
+Now we need a audio player, which connects to the mixer. For that I used
+the following launcher snippet.
+
+config/launcher/audio_player:
+
+!<launcher pkg="cnuke/pkg/audio_player/2019-01-14">
+!       <!-- paused, playing, stopped -->
+!       <config state="paused">
+!               <report progress="yes" interval="10" playlist="yes"/>
+!               <libc/>
+!               <vfs>
+!                       <fs/>
+!               </vfs>
+!       </config>
+!       <route>
+!               <service name="Audio_out"> <child name="mixer"/> </service>
+!               <service name="File_system"> <child name="audio_fs"/> </service>
+!               <service name="ROM" label="playlist"> <parent label="config -> playlist"/> </service>
+!               <service name="Report"> <parent/> </service>
+!       </route>
+!</launcher>
+
+As you may notice, the audio player needs access to a file system where the
+actual music files are located. For that I use a chroot component which gives
+readonly access to a subpath called audio.
+
+config/launcher/audio_fs:
+
+! <launcher pkg="chroot">
+!       <route>
+!               <service name="File_system"> <child name="default_fs_rw"/> </service>
+!       </route>
+!       <config> <default-policy path="/audio" writeable="no"/> </config>
+!</launcher>
+
+Additionally, one need to provide a playlist ROM, which contains the files to
+be played. 
+
+config/playlist:
+
+!<playlist mode="once"> <!-- repeat -->
+!    <track path="/rock.mp3"/>
+!    <track path="/pop.mp3"/>
+!    <track path="/metal.mp3"/>
+!</playlist>
+
+As you see, for the example I put in the audio directory 3 music files.
+
+Now everything is in place. As soon when I changed the
+"paused" config option to "playing" things
+started to run. First I did not hear anything. After playing with the volume
+level in the mixer and audio driver launcher configs, I noticed that
+I had to unmute via the hardware keys Fn-F1 on a Lenovo T460. On a Lenovo X201
+and T420 it just worked immediately. Thanks Josef !
+
+The launcher config snippet are also available directly via my
+[https://github.com/alex-ab/genode/commits/sculpt_pkg_audio_18_11 - audio branch],
+if you build your Sculpt image yourself. Read the general information about
+[https://genode.org/documentation/articles/sculpt-vc#Building_the_boot_image - building the boot image] of Sculpt VC if you intend to do so.
+
+At this point I could be done and enjoy music playing form a native Genode
+audio player on Genode's Sculpt VC.
+
+The experience
+--------------
+
+Unfortunately, the sound sometimes stutter - especially when I put the machine
+under load, like running some load in Noux or in the Firefox@Seoul browser.
+Also switching into the Leitzentrale via F12 causes audible
+interruptions, which tend to happen several times to me. The main reason is
+that the audio components are running as part of the runtime subsystem which
+are prioritized below the Leitzentrale and the Drivers subsystems. (See
+[https://genode.org/documentation/articles/sculpt-vc#System_overview - system overview of Sculpt] for
+details to the subsystems.
+
+Sculpt VC is running on the NOVA kernel, which uses a pre-emptive fixed
+priority round robin scheduler. That means for our audio use-case, each 
+component with a higher priority can interrupt as long and as often
+the audio components so that they miss all deadlines to deliver in-time audio
+data. One solution of course could be, to put all 3 audio components into
+the drivers subsystem.
+
+This is somehow undesired, since it would increase the boot image size and
+actually audio is not strictly required to boot up a system, right ?
+Furthermore, the audio components would become running on a very high priority
+level which may consume close to all CPU time in the event of a bug.
+
+Beside that, the general issue remains and you will encounter the same issue
+again whenever you have some kind of soft-realtime requirements, or more
+buzzword style, a mixed criticality system with untrusted components,
+e.g. ported drivers.
+
+Feeling uncomfortable with the situation - I decided to look for a more
+general solution instead of a quick and dirty workaround (by moving it just to
+the drivers subsystem).
+
+The foundations
+---------------
+
+For Genode's -hw- kernel we introduced long time ago a way to configure and to
+trade
+[https://genode.org/documentation/release-notes/14.11#Trading_CPU_time_between_components_using_the_HW_kernel - CPU time]
+very similar to the RAM resource of a Genode component. There is also a
+FOSDEM presentation and video about the kernel and scheduler [https://archive.fosdem.org/2017/schedule/event/microkernel_kernel_library - available]
+and [https://www.genode.org/documentation/release-notes/15.05#Dynamic_thread_weights - extensions] with the 15.05 release.
+In short, you may configure CPU time for -hw- like:
+
+!<start name="audio_drv">
+! <resource name="CPU" quantum="25"/>
+! <resource name="RAM" quantum="4M"/>
+! ...
+!</start>
+
+Effectively, in the example the component gets guaranteed up to 25%
+of the CPU time. (For more details about the trading, periods etc. please read
+the link.) For our use-case it means, that the audio driver gets 25%
+assured time independent of any fixed priorities of others components. More
+importantly, if the audio driver goes nuts it can not run/spin/consume more
+than the 25%. Nice - that is what should improve life ! Of course the driver
+may get more than the 25% - if and only if there is slack CPU time left -
+which means that not all components consumed all their available CPU time.
+
+The improvement
+---------------
+Inspired by the general concept the question is, can we also support it with
+the NOVA kernel ? The other direction - of just using -hw- as kernel for
+Sculpt VC - is not possible currently. Mainly, because of missing features on
+x86. However, a glimpse at our last roadmaps reveals that we are heading also
+into this direction.
+
+Coming back to the NOVA kernel - the nice thing about this kernel is that
+it actually already supports since ages the possibility to attach to a thread
+several scheduling configurations (called scheduling context - SC).
+
+The idea is now, that beside the normal SC we could attach a second SC. The
+normal SC has a priority and time quantum. Whenever the time quantum is
+depleted, it gets refilled immediately and the SC is attached at the end of
+the runnable list of SC of the given priority level.
+
+The second SC, let it call periodic SC, requires additionally a time period.
+Within the given period, the periodic SC can run up to the specified
+time quantum. If the quantum of the SC gets depleted, it will be refilled -not-
+before the start of the next period. With this extra period configuration,
+we can express the mentioned 25% CPU time of the example - e.g. a quantum of
+5ms in a period of 20ms. When the quantum of the periodic SC got depleted,
+the component still can continue to run on the normal SC, which is however
+subject to the normal fixed priority scheme. 
+
+Within one day a first experimental change to the NOVA kernel and Genode's
+core was usable. After some more days of testing it actually looked good.
+In the kernel the delayed re-filling of a quantum for a
+periodic SC has been added. In core the evaluation of the "CPU" resource parameter
+and the setup of the periodic SC have been added.
+
+The testing
+-----------
+
+And now - does it actually help to mitigate our stutter
+issue for audio ?
+
+First we have to add to our audio components a CPU quantum:
+ 
+!-<launcher pkg="cnuke/pkg/bsd_audio_drv/2019-01-13">
+!+<launcher cpu="10" pkg="cnuke/pkg/bsd_audio_drv/2019-01-13">
+! 	<config recording="false">
+! 		<mixer field="outputs.master" value="128"/>
+! 	</config>
+
+!-<launcher pkg="cnuke/pkg/audio_player/2019-01-14">
+!+<launcher cpu="10" pkg="cnuke/pkg/audio_player/2019-01-14">
+! 	<!-- paused, playing, stopped -->
+! 	<config state="paused">
+! 		<report progress="yes" interval="10" playlist="yes"/>
+
+!-<launcher pkg="cnuke/pkg/mixer/2019-01-13">
+!+<launcher cpu="10" pkg="cnuke/pkg/mixer/2019-01-13">
+! 	<config>
+! 		<default out_volume="100" volume="75"/>
+! 	</config>
+
+After a rebuild of Sculpt VC and a reboot, it became not better - damn - still
+stuttering during pressing of F12.
+
+After some while I noticed, that the CPU value is actually not evaluated by
+our sculpt_manager. The sculpt_manager actually transform the launcher code
+into the normal init <start ...> syntax. Ok, that is no big deal, just
+implement it by a small patch which is part of my
+[https://github.com/alex-ab/genode/commits/sculpt_pkg_audio_18_11 - audio branch].
+
+Again. Sculpt VC image re-build. Copying image to USB.
+
+Unplug USB from dev machine. Plug USB to test machine. Power on test machine.
+
+Waiting ...
+
+Clicking at "+" to start audio_drv, then the mixer and then audio_player.
+
+Inspect the ram filesystem.
+
+Editing with vim the config/audio_player file, change "paused" to "playing".
+Store it :w
+
+The feeling
+-----------
+
+Sound.
+
+Pressing F12
+
+Still sound - .oO - no stutter
+
+Pressing F12 F12
+
+Still sound without stutter - nice !!!
+
+So - it works in principal. Still, there will be sound artifacts, but now
+it should happen much less. There are several unsolved minor and maybe major
+issues left, so please consider this branch and the kernel changes as highly
+experimental.
+I tested it only on few machines, namely on Lenovo X201, T420 and T460 - but
+I'm quite happy about the current state and the principal success.
+
+I would be happy about some people testing it and give some
+feedback - especially your on-target experience would be of value for me.
+
+For interested Genode developers: I adjusted the [https://github.com/alex-ab/genode-world/commits/audio_player - audio_player.run scenario]
+in the Genode's world repository a bit to be really really evil to the audio
+subsystem, e.g. using CPU burners. You may use this simpler scenario then
+Sculpt for experiments.
