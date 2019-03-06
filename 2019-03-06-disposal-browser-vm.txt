@@ -1,0 +1,166 @@
+                         Disposal browser VMs
+
+Since the early beginning of Sculpt I host and maintain two packages for
+running an up-to-date Firefox as VM. My main motivation is to have the door to
+the Internet out-of my "work" VM, which contains all sorts of
+sensible data.
+
+The way
+-------
+
+In the beginning I was looking for an OS distribution with which I can create
+small VMs, but still leverage regular browser updates. I was quite
+surprised, that most distributions + browser quickly sum up to several
+giga-bytes, even if you are careful about what you install.
+
+Further, I required a OS distribution with which I can build a VM image which
+is runnable by the Seoul VMM and by the VBox5 VMM. Additionally, in the case
+of VBox5, the
+[https://www.virtualbox.org/manual/ch04.html#guestadd-intro - guest addition support]
+should be available to leverage the guest integration
+features such like shared folder, mouse pointer shapes and adaptive screen
+resolution changes.
+
+After some trials I finally settled on
+[https://distro.ibiblio.org/tinycorelinux - Tiny Core] as base, since the
+base system is outrageous small (16M) for a graphical Linux based system, but
+still provides enough maintainable flexibility to add an up-to-date browser.
+
+Unfortunately, the guest additions are not part of the standard Tiny Core
+packages, so I had to build and to create Tiny Core packages myself. The
+learning curve was quite steep, but the documentation and hints in the Tiny
+Core forum were sufficient to succeed. At least, I succeed to that degree, that
+I can use the shared folder support and also the initial screen resolution is
+taken as dictated by the dimension of the window in Sculpt.
+
+[image tinycore_packages]
+
+As you can see, the on boot loaded Tiny Core packages contain a Xfbdev X server,
+required for Seoul, and the self-build vbox5 packages, which contain the kernel
+drivers of the guest additions and the shared folder support. The
+firefox_getLatest package is shipped by Tiny Core with which you can download
+and package the latest Firefox yourself, which results in the firefox.tcz
+package.
+
+The Xfbdev server is not sufficient to get the guest additions running for
+VBox5. So, I added to /opt/bootsync.sh a short script, that loads during boot
+the Xorg X server. You may notice it during the boot by the following mesages:
+
+[image tinycore_boot]
+
+The final [https://depot.genode.org/alex-ab/raw/vm-tc-firefox - raw VM image] of
+Tiny Core and Firefox are in the order of 128M-150M, which is the best I could
+come up. The very same image can now be used for Seoul as VBox5.
+
+The both ready to use Sculpt packages I named firefox@seoul and firefox@vbox5.
+When started, they spawn a sub-init and as first task the mentioned VM image
+is completely loaded into RAM from your depot that is accessible solely
+read-only. As soon as the image is ready, the
+actual VMM is started and the VM gets bootstrapped and running. The whole
+VM is just kept in RAM and has no access to persistent storage. When you
+click in the live graph of the running firefox@seoul or firefox@vbox5 components
+and remove the instances, all memory of the VM and VMM and all downloaded good
+or bad content vanishes.
+
+The choice
+----------
+
+The very same image runs on our port of Virtualbox (VBox5) and
+on a VMM called Seoul. The question may come up, why you should bother ? What
+is Seoul ? 
+
+First, if you bother about code you have to trust in order to get things
+running - the trusted computing base (TCB) - you will notice some difference.
+If you look at the Lines of Code (LOC) of VBox5, you will notice that they
+sum up to more than 1 Million LOC. For Seoul the counter stops at
+25.000 LOC.
+
+Second, if you run the VM in both VMMs after each other, you will notice
+some noticeable subjective performance difference. The very same VM will be
+quiet more snappy and responsiveness with the right VMM.
+
+Just try out.
+
+Or/and read about in the [http://hypervisor.org/eurosys2010.pdf - Eurosys 2010 paper].
+[https://github.com/alex-ab/seoul - Seoul] is a project originated/renamed out
+of the Vancouver project, originally developed by my former university collogue
+Bernhard Kauer. The final results are documented in his
+[https://os.inf.tu-dresden.de/papers_ps/kauer-phd.pdf - dissertation],
+in the mentioned Eurosys 2010 paper, and also some
+[https://os.inf.tu-dresden.de/~sojka/nul/doc/sec_4_2.html - low level graphs]
+as part of the NOVA user land (NUL) documentation.
+
+However, to clearly name the benefits of VBox5, the guest integration features
+are quite nice in daily work and also much more guests are supported in
+principal, like Windows 7/10, various Linux distributions, and also 64bit guests.
+
+The instructions
+----------------
+
+Please setup a window manager on Sculpt CE - a base guide was posted on the
+[https://lists.genode.org/pipermail/users/2019-March/006633.html - mailing list].
+
+Afterwards you may install the disposal VM images.
+
+# Connect to the network, which is needed to install software.
+# In the '+' menu, go to "Depot... -> Selection ... " and select the
+  my user name "alex-ab"
+
+[image user_selection]
+
+# To select a VM, select in the '+' menu, "Depot... -> alex-ab -> Virtual machines...":
+
+[image alex_ab_selection]
+
+# Select "firefox@seoul" for the Seoul version and connect as follows:
+
+  * Network              -> nic router
+  * ROM (platform info)  -> platform information
+  * GUI                  -> themed wm
+  * Region maps          -> custom virtual memory objects
+  * Real-time clock      -> system clock
+
+[image alex_ab_seoul]
+
+For the VBox5 version, further steps are needed:
+
+# Start the "shared_fs" component. This chroot
+  instance provides the <sculpt-partition>/shared/ directory as a file
+  system.
+# Start the "usb_devices_rom" component from the '+' menu, which can
+  be used to assign USB devices to the VM.
+# To add the VM, select
+  "Depot... -> alex-ab -> Virtual machines... -> firefox@vbox5"
+  and connect it as follows:
+
+  * File system (shared) -> shared fs
+  * GUI                  -> themed wm
+  * Network              -> nic router
+  * ROM (capslock)       -> global capslock state
+  * ROM (platform info)  -> platform information
+  * ROM (usb devices)    -> usb devices rom
+  * Report (shape)       -> themed wm
+  * Report               -> system reports
+  * Region maps          -> custom virtual memory objects
+  * Real-time clock      -> system clock
+  * USB                  -> direct USB device access
+
+[image alex_ab_vbox5]
+
+The update plan
+---------------
+
+I tend to update the images whenever I notice that Tiny Core and or Firefox
+get new versions, which will result in new updated Sculpt packages with a
+new version. Currently, the version name consists of the Sculpt version and
+the Firefox version, e.g. 19.02-65.0.1. I try to keep the schema for next
+updates.
+
+As you may notice, the images are still based on Tiny Core
+9 and not on the current Tiny Core 10. The main hassle is that the
+VBox5 guest additions for our supported VBox5 VMM (version 5.1.36) 
+don't build anymore with newer Linux kernel versions as used by Tiny Core 10.
+
+I succeeded to build and re-package the guest additions when using 5.2.* versions,
+but unfortunately the shared folder support stopped to work. Because of that,
+I'm currently settled on Tiny Core 9.
