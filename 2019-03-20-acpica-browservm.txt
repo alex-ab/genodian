@@ -1,0 +1,93 @@
+                         Updated packages for Sculpt CE
+
+With the 
+[https://genode.org/download/sculpt#Sculpt_as_a_Community_Experience__CE_ - image release]
+of Genode's
+[https://genode.org/documentation/articles/sculpt-ce - Sculpt CE] yesterday,
+it is time to report about some updated packages of mine.
+
+Disposal Firefox VMs
+--------------------
+
+The
+[http://www.genodians.org/alex-ab/2019-03-06-disposal-browser-vm - disposal VM packages]
+got updated to Sculpt CE and also contain the newest Firefox 66 version.
+Additionally, thanks to Sebastian Sumpf, the Seoul version got scroll wheel
+support.
+
+! +
+!   -> Depot
+!      -> alex-ab
+!        -> Virtual machines ...
+!          -> firefox@seoul (19.03-66.0.0)
+!          -> firefox@vbox5 (19.03-66.0.0)
+
+
+Advanced ACPI support for Sculpt CE
+-----------------------------------
+
+Additionally, I provide two new packages, which use our
+[https://genode.org/documentation/release-notes/16.05#Enhanced_ACPI_support - acpica component].
+With this component you can poweroff and reset a machine and you can monitor
+various ACPI events of your notebook. The version of the component I used is not
+the latest one of the Genode master branch, but the last one which is known to
+work well enough for the Lenovo notebooks surrounded by me.
+
+! +
+!   -> Depot
+!      -> alex-ab
+!        -> System
+!          -> acpica
+!          -> battery
+
+The 'acpica' package just contains the component without any GUI interface. As
+soon as you configure it, you will notice that this component requires quite
+a lot of low-level access to the system to work. Actually, it is a fully fledged 
+ACPI driver. Now is a good time to equip yourself with a good understanding of the
+[https://genode.org/documentation/articles/sculpt-ce#System_resources - system resources]
+you are going to grant access to. My suggestion looks like this:
+
+! Direct memory-mapped I/O
+!   -> raw hardware access
+! Direct port I/O
+!   -> raw hardware access
+! Direct device interrupts
+!   -> raw hardware access
+! Device access
+!   -> ACPI
+! ROM (platform info)
+!   -> platform information
+! ROM (system)
+!   -> system status
+! Report
+!   -> system reports
+
+If your machine is supported, the driver will report all ACPI related information
+via the 'system report', as you configured. When you use an inspect window,
+the reports will be available via '/report/runtime/acpica/acpi_*'. Please consult the
+[https://github.com/genodelabs/genode/blob/master/repos/libports/src/app/acpica/README - acpica README]
+for a basic introduction.
+
+With the 'ROM (system)' configuration above, you granted read access to the
+/config/system file. When you open this file you will see the following content
+
+! <!-- supported states: "poweroff" or "reset" when acpica started -->            
+! <!-- Note: power down your persistent Genode applications & VMs beforehand on your own ! -->
+! <system state=""/>
+
+The acpica component monitors this file and will react upon changes. So,
+if you now set the state to 'reset' or 'poweroff' and write this file -
+the acpica component will try to accomplish the task - IMMEDIATELY ! So, make
+your changes persistent beforehand, e.g. powerdown your VMs beforehand.
+
+The 'battery' package contains, in addition to the acpica component, a
+very simple nitpicker GUI client, which shows graphically the battery state.
+The report location of the acpica component changed now to
+'/report/runtime/battery/acpi_*', according to the 'battery' package name.
+
+You will notice, that now one report is missing, the 'acpica_battery' report.
+This report is consumed by the GUI tool, however the content can be still
+accessed via a button in the battery GUI.
+
+Please note, since the two packages contain the same ACPI driver, you can NOT
+run them in parallel. Just use one package at a time.
