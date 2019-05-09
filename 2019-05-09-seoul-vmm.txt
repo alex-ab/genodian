@@ -1,0 +1,190 @@
+              Seoul VMM and the new VM interface
+
+
+In January I presented the ongoing
+[https://fosdem.org/2019/schedule/event/microkernel_virtualization - work] at the
+[https://fosdem.org/2019 - FOSDEM 2019] about the generalization of the virtualization
+interface on Genode for x86. Now the first bunch of commits entered Genode
+master for the Seoul VMM.
+
+Now I got asked repeatedly, how is the performance on Genode@NOVA compared to
+the former kernel-specific Seoul VMM version. How do the other supported
+platforms, e.g. Genode@seL4 and Genode@Fiasco.OC, perform compared to
+Genode@NOVA, how stable is the kernel-agnostic Seoul VMM on the various
+platforms, how these and that ... 
+
+In the post I try to answer some of the questions. Please keep in mind, that
+the current state is not heavily optimized for each platform (nor do I
+attempt or plan to do so), and this post is more or less just an attempt to
+archive/document the current state. The following measurements may become
+handy in the future whenever we make adjustments to the VM session, or the Seoul
+VMM and we afterwards want to know whether things now became better or worse.
+
+The overall subjective perception of the interactive performance seems to have
+not changed for Genode@NOVA. Using the test browser VM ([https://github.com/alex-ab/genode/blob/genodians_19_04_seoul_post/repos/ports/run/seoul-fancy.run - seoul-fancy.run]) seems
+to behave as before (using Genode 19.02). With the next Sculpt release we actually will see, how well this behaves in a day-to-day setup.
+
+However, the human perception is hard to quantify. To have a more quantifiable
+load, regarding performance and stability, I removed the dust of the
+[https://github.com/alex-ab/genode/blob/genodians_19_04_seoul_post/repos/ports/run/seoul-kernelbuild.run - seoul-kernelbuild.run] script. The scenario boots up a 32bit Linux VM
+which compiles a Linux kernel and measures the time it took. Having this 
+running on Genode@NOVA, Genode@Fiasco.OC and Genode@seL4 and across several
+machines should give us some better comparable values. The branch I used is
+[https://github.com/alex-ab/genode/commits/genodians_19_04_seoul_post - current master + 3 additional commits] which will enter the next Genode master
+branch eventually.
+
+The changes to a generalized VM session interface took, if at all, some minor
+performance degradations, as you may see from the tables. The row with the
+name "nova (19.02)" denotes the numbers as measured on Genode 19.02, so the
+Seoul VMM version not using the common Genode VM interface. In the 19.02
+Seoul version the VMM and the vCPU were placed ever on logical disjunct CPUs.
+The columns with 1(d) and 2(d) denotes this fact of having 1 vCPU or 2 vCPUs
+and the VMM on another disjunct logical CPU.
+
+In contrast - the 1(s) and 2(s) columns for the new Seoul VMM version denotes
+the fact, that the first vCPU and Seoul VMM share the same logical CPU, and any
+subsequent (2.) vCPU is running on another disjunct logical CPU.
+
+Why do I make this disjunction ? The workload is heavily CPU bound,
+compiling and storing everything in RAM and no I/O to real physical storage.
+That means by moving a vCPU exclusively to a physical CPU, you should see
+some performance improvements. All the additional overhead by the VMM, like
+processing Genode related events are done on another physical CPU. 
+If you look at the numbers for 1(s) vs 1(d) you will see this at least on
+weaker CPUs when using few vCPUs.
+
+The good news in general is, that the Seoul VMM is now running on seL4,
+Fiasco.OC and NOVA. The Linux VM kernel compile succeeds on NOVA and Fiasco.OC 
+using the Seoul VMM adjusted to the kernel agnostic VM interface of Genode.
+And - Intel and AMD are working for both kernels.
+
+The bad news is that on seL4 the Linux kernel compile does not succeed, because of
+several reasons. On the one hand our support for seL4 is still experimental
+(limited allocators in core, only 4k memory mappings), which leads to decreased
+performance. Additionally, the Linux compile aborts on seL4 with some
+segmentation faults in the guest after a while. Using multiple vCPUs crash
+the seL4 kernel reliable. So, obviously something is still wrong and needs more
+investigations on various levels.
+ 
+Ok, lets start with what is working. I did some measurements on 3 Intel
+based machines in the office and 1 AMD machine I privately own. 
+Genode/Seoul/kernel
+are running 64bit and the VM is a 32 bit guest, as mentioned earlier.
+For each run I saved the log and added it as reference in the tables. For the
+percentage numbers I used as base/best number the 1(d) measurement.
+A positive percentage means that something
+run longer and therefore it was slower. A negative percentage means that something
+run shorter and therefore it was faster.
+
+
+Lenovo X201 - i5 CPU M 520 @ 2.40GHz
+------------------------------------
+
+For the measurements I disabled the hyperthreads, that means we have 2 physical
+CPUs. As you see from the numbers, the 19.02 version and the current version of
+the Seoul VMM for NOVA don't vary a lot. As mentioned, the 1(s) vs 1(d) numbers,
+show that the co-location of vCPU and VMM on the same physical CPU costs
+you some performance.
+
+The Fiasco.OC numbers are somewhat slower. Interestingly, the actual expected
+performance increase of using 1(d) is not observable for Fiasco.OC. The reasons
+are not clear currently.
+
+  kernel/vcpu | 1 (s) | 1 (d) | 2 (s) | 2 (d)
+ --------------------------------------------
+  nova (19.02) | - | [https://genode.org/files/seoul/19.04/64_intel_x201_diff_1vcpu_nova_19_02.txt - 717s] (+0%) | - | [https://genode.org/files/seoul/19.04/64_intel_x201_diff_2vcpu_nova_19_02.txt - 396s] (-45%) | -
+--------------------------------
+  nova    | [https://genode.org/files/seoul/19.04/64_intel_x201_same_1vcpu_nova.txt - 754s] (+5%) | [https://genode.org/files/seoul/19.04/64_intel_x201_diff_1vcpu_nova.txt - 719s] (+0%) | [https://genode.org/files/seoul/19.04/64_intel_x201_same_2vcpu_nova.txt - 399s] (-44%) | -
+ ------------------------------------------------------------
+  foc     | [https://genode.org/files/seoul/19.04/64_intel_x201_same_1vcpu_foc.txt - 869s] (+21%) | [https://genode.org/files/seoul/19.04/64_intel_x201_diff_1vcpu_foc.txt - 964s] (+34%) | [https://genode.org/files/seoul/19.04/64_intel_x201_same_2vcpu_foc.txt - 547s] (-24%) | -
+ ------------------------------------------------------------
+  sel4    | - | - | - | -
+
+[table X201] Lenovo X201: Linux kernel compile in a 32bit Linux VM
+
+
+
+Lenovo T420 - i5-2430M CPU @ 2.40GHz
+------------------------------------
+
+For the measurements I disabled the hyperthreads, that means we have 2 physical
+CPUs. The numbers are actually very similar to the X201. One notable difference
+is, that the measurements for Fiasco.OC on this machine vary a lot between runs.
+So, they were not as stable as for the NOVA runs.
+
+  kernel/vcpu  | 1 (s)      | 1 (d)      | 2 (s)      | 2 (d)
+ --------------------------------------------------------------
+  nova (19.02) | - | [https://genode.org/files/seoul/19.04/64_intel_t420_diff_1vcpu_nova_19_02.txt - 719s] (+0%) | - | [https://genode.org/files/seoul/19.04/64_intel_t420_diff_2vcpu_nova_19_02.txt - 393s] (-45%) | -
+--------------------------------
+  nova    | [https://genode.org/files/seoul/19.04/64_intel_t420_same_1vcpu_nova.txt - 757s] (+5%) | [https://genode.org/files/seoul/19.04/64_intel_t420_diff_1vcpu_nova.txt - 722s] (+0%) | [https://genode.org/files/seoul/19.04/64_intel_t420_same_2vcpu_nova.txt - 394s] (-45%) | - 
+ ------------------------------------------------------------
+  foc     | [https://genode.org/files/seoul/19.04/64_intel_t420_same_1vcpu_foc.txt - 874s] (+21%) | [https://genode.org/files/seoul/19.04/64_intel_t420_diff_1vcpu_foc.txt - 1180s] (+64%) | [https://genode.org/files/seoul/19.04/64_intel_t420_same_2vcpu_foc.txt - 482s] (-32%) | - 
+ ------------------------------------------------------------
+  sel4    | - | - | - | -
+
+[table T420] Lenovo T420: Linux kernel compile in a 32bit Linux VM
+
+
+Nightly test machine - i7-4770 CPU @ 3.40GHz
+--------------------------------------------
+
+This machine we use nightly to test/boot automated all our x86 based
+[https://github.com/genodelabs/genode/blob/master/tool/autopilot.list - autopilot run scripts] on
+the current staging Genode branch. When it was unused by our automated
+test infrastructure, I did the measurements with the mentioned branch above.
+
+The machine has 4 physical CPUs, hyperthreading was enabled - so we have up to
+8 logical CPUs in the logs. Nevertheless, I used only up to 4 logical CPUs in
+the runs.
+
+As you see nicely, as more vCPUs you add as quicker your compile finishes.
+This is observable on both kernels, however some anomaly you can see for
+Fiasco.OC. The reasons are not clear currently and were 
+not investigated. Again, the numbers between runs are not very stable across
+runs for Fiasco.OC.
+
+  kernel/vcpu  | 1 (s) | 1 (d) | 2 (s) | 2 (d) | 3 (s) | 3 (d) | 4 (s) | 4 (d)
+ -----------------------------------------------------------------------------
+  nova (19.02) | - | [https://genode.org/files/seoul/19.04/64_intel_macho_diff_1vcpu_nova_19_02.txt - 402s] (+0%) | - | [https://genode.org/files/seoul/19.04/64_intel_macho_diff_2vcpu_nova_19_02.txt - 212s] (-47%) | - | [https://genode.org/files/seoul/19.04/64_intel_macho_diff_3vcpu_nova_19_02.txt - 149s] (-63%) | - | [https://genode.org/files/seoul/19.04/64_intel_macho_diff_4vcpu_nova_19_02.txt - 116s] (-71%) |
+--------------------------------
+  nova    | [https://genode.org/files/seoul/19.04/64_intel_macho_same_1vcpu_nova.txt - 416s] (+3%) | [https://genode.org/files/seoul/19.04/64_intel_macho_diff_1vcpu_nova.txt - 403s] (+0%) | [https://genode.org/files/seoul/19.04/64_intel_macho_same_2vcpu_nova.txt - 218s] (-46%) | [https://genode.org/files/seoul/19.04/64_intel_macho_diff_2vcpu_nova.txt - 214s] (-47%) | [https://genode.org/files/seoul/19.04/64_intel_macho_same_3vcpu_nova.txt - 151s] (-62%) | [https://genode.org/files/seoul/19.04/64_intel_macho_diff_3vcpu_nova.txt - 149s] (-63%) | [https://genode.org/files/seoul/19.04/64_intel_macho_same_4vcpu_nova.txt - 119s] (-70%) |
+ ------------------------------------------------------------
+  foc     | [https://genode.org/files/seoul/19.04/64_intel_macho_same_1vcpu_foc.txt - 448s] (+11%) | [https://genode.org/files/seoul/19.04/64_intel_macho_diff_1vcpu_foc.txt - 447s] (+11%) | [https://genode.org/files/seoul/19.04/64_intel_macho_same_2vcpu_foc.txt - 261s] (-35%) | [https://genode.org/files/seoul/19.04/64_intel_macho_diff_2vcpu_foc.txt - 235s] (-42%) | [https://genode.org/files/seoul/19.04/64_intel_macho_same_3vcpu_foc.txt - 292s] (-27%) | [https://genode.org/files/seoul/19.04/64_intel_macho_diff_3vcpu_foc.txt - 167s] (-34%) | [https://genode.org/files/seoul/19.04/64_intel_macho_same_4vcpu_foc.txt - 209s] (-48%) |
+ ------------------------------------------------------------
+  sel4    | - | - | - | - | - | - | - | -
+
+[table Macho] Genode's nighly test machine: Linux kernel compile in a 32bit Linux VM
+
+
+AMD Phenom II X4 965
+------------------------
+
+I have an oldish AMD machine still around, which I use from time to time to
+test Genode on privately. The actual good news is, that Seoul runs in principle
+on AMD actually, even for both kernels.
+
+For Fiasco.OC the numbers are not very stable currently. As you may see
+from the logs, the time past in the VM is somehow off compared to the time
+the remote host reported of the run, e.g. 2(s). Because of that I marked the
+numbers with a star. Obviously, the time virtualization is still wrong, but
+currently it is not clear on which level (kernel vs VM interface vs Seoul VMM).
+ 
+  kernel/vcpu  | 1 (s)       | 1 (d)      | 2 (s)       | 2 (d)
+ ---------------------------------------------------------------
+  nova (19.02) | - | - | - | -
+-----------------------------------
+  nova    | [https://genode.org/files/seoul/19.04/64_amd_phenom_same_1vcpu_nova.txt - 614s] (+7%)  | [https://genode.org/files/seoul/19.04/64_amd_phenom_diff_1vcpu_nova.txt - 572s] (+0%) | [https://genode.org/files/seoul/19.04/64_amd_phenom_same_2vcpu_nova.txt - 311s] (-45%) | -
+ ---------------------------------------------------------------
+  foc     | [https://genode.org/files/seoul/19.04/64_amd_phenom_same_1vcpu_foc.txt - 672s] (+17%) | [https://genode.org/files/seoul/19.04/64_amd_phenom_diff_1vcpu_foc.txt - 981s*] (+71%) | [https://genode.org/files/seoul/19.04/64_amd_phenom_same_2vcpu_foc.txt - 480s*] (-16%) | -
+ ---------------------------------------------------------------
+  sel4    | - | - | - | -
+
+[table AMD] AMD Phenom II X4: Linux kernel compile in a 32bit Linux VM
+
+Conclusion
+----------
+
+As you can see, things are working quite well. Still, several anomalies
+exist which require deeper investigations. I'm not going to do
+that in the close future, because of other more pressing work. If anyone
+else has time, motivation and technical knowledge I can lend a helping hand.
