@@ -1,0 +1,71 @@
+                     Screencast on Sculpt OS
+
+From time-to-time the
+[https://github.com/genodelabs/genode/issues/1806 - screen cast]
+support on Genode pops up. Martin successfully ported
+avconv and demonstrated it
+[https://www.youtube.com/watch?v=QeBvog_ZoXM - back then in 2016].
+In the event of Sculpt OS, I lately had the chance to update the port and
+integrate it with Sculpt OS in form of packages ready for use. The
+following instructions will guide you through the setup. Additionally a short
+[https://www.youtube.com/watch?v=4wKmpCrWSxI - video] recorded running on Sculpt
+is available.
+
+In order to run the screen cast version of Sculpt OS, you will need to download
+the experimental branch alex-ab/sculpt_avconv_19_11 and build the Sculpt image
+yourself. Clone  
+
+! git clone https://github.com/alex-ab/genode
+! cd genode
+! git checkout sculpt_avconv_19_11
+
+and adjust to the rest of the instructions for
+[https://genode.org/documentation/articles/sculpt-19-07#Building_the_boot_image - building the boot image]
+and/or watch the short video about
+[https://www.youtube.com/watch?v=7g8hDQQt-VI - building the Sculpt OS image].
+
+After booting your new sculpt image, you can find the avconv tool via
+
+! +
+!   -> Depot
+!      -> alex-ab
+!        -> Experimental
+!          -> avconv
+!          -> avplay
+
+On startup of 'avonv' you will have to connect to a Framebuffer service,
+choose the 'raw framebuffer access'. Additionally, the 'avonv' component needs
+a storage location to save the recording. When started successfully, the
+avconv tool will create a file named out.avi and will record everything you
+are now doing. You may stop 'avconv' by removing it from the
+component graph.
+
+If you now want to watch your recording, you may do so by using the 'avplay'
+package. The 'avplay' component expects a file named 'mediafile', a GUI service
+and an audio service. As shown in the video, use the 'inspect' feature to mount
+the file system and make a copy of the 'out.avi' file and name it 'mediafile'.
+After installing an audio driver, e.g. shown in the video, you can start
+'avplay'. After you connected it to all required services, you may watch your
+recording finally.
+
+As final note, please consider this version of the Sculpt image as
+experimental. You may use all provided packages without
+further changes, but don't use it for productive/daily use
+- just for recordings ;-).
+
+The [https://github.com/alex-ab/genode-world/commits/avconv_screencasts - libav, avconv and avplay]
+sources are available in my genode-world repository.
+
+Known issues
+------------
+
+If your 'avconv' component does not start and complains about a missing
+'vfs_lxfb.lib.so" ROM, then you may have in your backup/restored
+config/deploy a line about 'vfs.lib.so'. Comment the line out, save your config
+and reboot your image.
+
+!	<common_routes>
+!		<service name="ROM" label_last="ld.lib.so">  <parent/> </service>
+!		<!-- <service name="ROM" label_last="vfs.lib.so"> <parent/> </service> -->
+!		<service name="ROM" label_last="init">       <parent/> </service>
+!		...
