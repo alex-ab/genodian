@@ -1,0 +1,48 @@
+                     CPU affinity with Sculpt OS
+
+With the latest 20.02 Sculpt release we added support to configure the affinity
+and number of CPUs available to components running on Sculpt. The principal
+support was already part of the Genode framework since
+[https://genode.org/documentation/release-notes/13.08#Management_of_CPU_affinities - 13.08 (release notes)],
+but missed to be easily usable on previous Sculpt versions.
+
+When using some CPU tool, like [http://www.genodians.org/alex-ab/2019-12-23-top-view - top-view],
+one will see that most runtime components will run on the first CPU.
+
+[image affinity0]
+
+In order to change the affinity parameters you may now adjust the affinity
+space parameters by adjusting the xpos/ypos and the available
+CPUs by width/height in a launcher file or start node of your deploy file.
+Please read for more details about the concept the 13.08 release notes and/or
+the Genode foundation book.
+
+! /rw/config/20.02/launcher/firefox@seoul
+!
+! <launcher name="firefox@seoul" xpos="1" ypos="0" width="2" height="1"
+!                                version="2" pkg="alex-ab/pkg/firefox@seul/...">
+! ...
+! </launcher>
+
+! /config/deploy
+!
+! <start name="top_view" xpos="1" ypos="0" width="1" height="1"
+!                        version="2" pkg="alex-ab/pkg/top_view/...">
+! ...
+! </start>
+
+By adding/changing the version attribute the component gets restarted and placed
+immediately.
+
+[image affinity1]
+
+In order to know which affinity values are meaningful, look for an affinity node
+in /config/managed/runtime, e.g.:
+
+! <affinity-space width="4" height="1"/>
+
+That means sensible values are for xpos 0-3,
+for width 1-4 (depending on xpos), for ypos 0 and height 1.
+
+In the future we may make this affinity configuration step available by some
+graphical tooling to ease life.
