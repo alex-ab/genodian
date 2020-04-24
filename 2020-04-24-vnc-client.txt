@@ -1,0 +1,83 @@
+                           Native VNC client
+
+In order to connect to VMs remotely, several options exist. Using VNC is one
+way to go. Virtualization solutions like Qemu/KVM
+have built-in support, so a native VNC client on Genode becomes handy.
+In this post I'm going to report about a ported VNC client of
+the [https://github.com/LibVNC/libvncserver - libvncserver project] and its 
+usage on Sculpt 20.02.
+
+My colleague Christian P. ported some time ago already a libvnc version, which
+I could revive and adjust to today's Genode code base. Additionally, I packaged
+the port of libvnc and the SDL based VNC client to be usable with Sculpt 20.02.
+With the ported VNC client I was able to connect to and use VMs running on
+Linux/KVM remotely. The client is packaged and was tested on both Sculpt 20.02
+versions, [https://genode.org/download/sculpt#Version_20.02 - x86_64] and
+[https://genode.org/documentation/release-notes/20.02#Sculpt_OS_on_64-bit_ARM_i.MX8_hardware - arm_v8a].
+
+The [https://github.com/genodelabs/genode-world/pull/206 - result] of
+this work entered the [https://github.com/genodelabs/genode-world - genode-world]
+repository already and can be tried out. For convenience reasons, I provide the 
+ready to use packages of the client via my depot of Sculpt 20.02. You may find
+the packages and download it from via Sculpt's installation menu:
+
+! +
+!   -> Depot
+!      -> alex-ab
+!        -> Applications
+!          -> sdl_vnc (x86)
+!          -> sdl_vnc (arm_v8a)
+
+When starting the VNC component first time, it will complain about a missing
+configuration. Right, we need to tell where we want to connect to. The client
+expects its configuration in the recall filesystem, which you configured
+access to beforehand. You may use the build in file browser, the inspect
+feature or a noux shell to lookup a basic configuration in the sdl_vnc package:
+
+! /rw/depot/alex-ab/pkg/sdl_vnc/<version>/runtime
+
+There you will find a commented out example configuration, which is well suited
+as starting point. Copy the config xml node part over to the recall directory
+
+! /rw/recall/sdl_vnc/recall/config
+
+and keep only the config xml node, e.g.:
+
+!<config>
+!	<arg value="sdl_vnc"/>
+!	<arg value="127.0.0.1:5900"/>
+!	<libc stdout="/dev/log" stderr="/dev/log" rtc="/dev/rtc" socket="/socket"/>
+!	<vfs>
+!		<dir name="dev">
+!			<log/> <null/ <rtc/>
+!			<inline name="random">01234567890123456789</inline>
+!		</dir>
+!		<dir name="socket"> <lwip dhcp="yes"/> </dir>
+!	</vfs>
+!</config
+
+As you see, you may now configure the remote IPv4 address and the port, where
+you want to connect to. In case you need to provide a VNC password, add
+additionally the arg nodes:
+
+! <config>
+!	<arg value="sdl_vnc"/>
+!	<arg value="127.0.0.1:5900"/>
+!	<arg value="-password"/>
+!	<arg value="secretpassphrase"/>
+!	....
+
+As you see from the configuration, by default the lightweight IP (lwIP) stack
+is configured. If you prefer the ported Linux IP stack, just
+replace 'lwip' by 'lxip' in the configuration and there you go.
+
+[image https://depot.genode.org/alex-ab/images/genodians_vnc]
+
+Known issues
+------------
+
+We hoped to use the VNC client also with Intel AMTs KVM for testing/developing
+purposes. Unfortunately, the Intel AMT KVM server speaks the VNC 4.0 protocol
+version and the client supports solely 3.8. A test drive of the unmodified
+SDL VNC client on Linux with the target AMT KVM machine failed with the same
+symptom as our port on Sculpt OS.
