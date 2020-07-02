@@ -1,0 +1,155 @@
+              Streaming Android to Genode using Scrcpy
+
+In this post I report about the work of bringing 
+[https://github.com/Genymobile/scrcpy#readme - Scrcpy] to Genode. Additionally,
+a short [https://www.youtube.com/watch?v=svC-kzOqtzw - video] demonstrates the
+outcome of the undertaking.
+
+Over the last weeks I explored some directions, how and whether Genode can
+be used as "thin" client to stream graphical output of a remotely
+running VM. One first and in principle easy step was to utilize
+[https://www.genodians.org/alex-ab/2020-04-24-vnc-client - a native VNC client],
+since most virtualization solutions like Virtualbox or KVM/Qemu have built-in
+VNC (server) support.
+
+A next, more adventurous idea came up - what does it take to stream directly
+from an Android instance, either running in a VM or being it a physical mobile
+device. Looking through the web, one finds a lot of commercial solutions in
+form of Android apps. Unfortunately, most of them don't provide the source code
+in order to play, experiment and potentially port it to Genode.
+However, one - by the way, amazing - solution indeed seemed promising,
+[https://github.com/Genymobile/scrcpy#readme - Scrcpy].
+
+First, I tried to use Scrcpy with an Android phone. Pleasantly, it
+worked without objections according to the documentation - great ! I used
+an Ubuntu 18.04 LTS developer machine, to connect to the phone either via
+connected USB cable and as second step wireless in our local test WLAN. After
+fighting a bit, actually familiarizing, with the
+[https://developer.android.com/studio/command-line/adb - adb tool],
+the next step was to check the dependencies of Scrcpy for a port.
+The list was pleasantly short, libc, pthread, SDL2 and libav/ffmpeg will do.
+A port of SDL2 was missing at that time, but we have already SDL support.
+Just the dependency of the adb tool left some doubts.
+
+Unfortunately, the doubts were justified. An attempt to port adb to Genode
+failed early. First we have no Clang support in our toolchain. Nevertheless, I
+tried to compile it with Ubuntu 18.04 g++ and with Genode's toolchain, which
+lead to manifold Clang specific pragma warnings. The evaluation of some
+constexpr stopped g++ hard. After quirking a bit around the easy issues,
+eventually the Ubuntu 18.04 compiler died with some internal compiler failure.
+On Genode I did not get as far due to the unfinished std::mutex support and
+missing libc pread64/pwrite64 support.
+
+Now the time was to stop the whole thing, or get hands dirty with Scrcpy
+internals. A very rough analysis of the adb/Scrcpy interaction
+
+[image scrcpy0]
+
+lead to the idea, to modify the Scrcpy client to not using adb. Adb would be
+still required to deploy the Scrcpy server, but at runtime the Scrcpy client
+should/could not issue adb commands via fork. The next rough sketch shows the
+idea
+
+[image scrcpy1]
+
+to let the Scrcpy server & client speak directly to each other. Eventually,
+I managed to implement the idea and the adjustments are on my 
+[https://github.com/alex-ab/scrcpy/commits/direct - scrcpy direct] branch.
+
+With the modification in place, the Scrcpy server must be deployed manually before starting
+the Scrcpy client, by first pushing it to the Android device
+
+! adb push build/server/scrcpy-server /data/local/tmp/scrcpy-server.jar
+
+and finally starting the server
+
+! adb shell CLASSPATH=/data/local/tmp/scrcpy-server.jar app_process / com.genymobile.scrcpy.Server 1.13 0 8000000 0 -1 true - true true 0 <IP_ADDR> 27184
+
+The Scrcpy client can be tested without installation on GNU/Linux by
+
+! ./run build --server-remote <IP_ADDR> --server-port 27184
+
+specifying the Scrcpy server IP address and port.
+
+With the modified Scrcpy client operable on GNU/Linux, it was time to start
+the actual porting work to Genode. As pointed out, SDL2 was missing and I
+added the port within manageable time. The result entered already the
+[https://github.com/genodelabs/genode-world - Genode world repository]. Our
+port of libav worked like a charm, so the Scrcpy port progressed
+quickly. The final result of my Scrcpy port entered the Genode world eventually.
+
+Beside the Genode world repository, further improvements regarding CPU count
+detection within our libc and pthread placement are required, which are
+currently on the way to enter the Genode master repository. For the time being 
+my [https://github.com/alex-ab/genode/commits/scrcpy_rgb888 - scrcpy_rgb888]
+branch contains all required adjustments.
+
+Finally, I recorded and uploaded a [https://www.youtube.com/watch?v=svC-kzOqtzw - video]
+showing our custom kernel HW on the IMX8Q EVK board running the Scrcpy client.
+The very same setup was tested also successfully with Genode/NOVA on x86_64.
+If someone want to give the scenario a spin, the Genode world repository
+contains a scrcpy.run runscript which may serve as starting point.
+
+The current scenario works quite well, but must be considered just as pure demo.
+Further improvements would involve adding a hardware accelerated SDL2 render,
+hardware accelerated H.264 decoder support and secured communication between
+Scrcpy server and client, e.g. using TLS.
+
+ADB and Linux/KVM notes
+-----------------------
+
+Just for the records, some notes about how to setup Scrcpy connection when
+Android is running in a VM. For that, one can use
+[https://www.android-x86.org/ - Android x86] (if you have no powerful
+ARM machine below your desk) and install it using Linux/KVM. After that
+step, one has to enable USB debugging within the Android VM.
+
+Now the question was, how to push the Scrcpy server into the VM from the
+outside. By adding another network card with port forwarding, I was able
+to get the adb connection into the VM working. Add following snippet 
+to your VM xml configuration, e.g. using virsh:
+
+! -<domain type='kvm'>
+! +<domain type='kvm' xmlns:qemu='http://libvirt.org/schemas/domain/qemu/1.0'>
+!    <name>android-x86_64-9.0-r2</name>
+!    <uuid>1ca1011f-90b0-4b78-a43d-bc46cb9cd181</uuid>
+!    <memory unit='KiB'>4194304</memory>
+! @@ -88,5 +88,11 @@
+!        <address type='pci' domain='0x0000' bus='0x00' slot='0x05' function='0x0'/>
+!      </memballoon>
+!    </devices>
+! +  <qemu:commandline>
+! +    <qemu:arg value='-device'/>
+! +    <qemu:arg value='rtl8139,netdev=adbnet0'/>
+! +    <qemu:arg value='-netdev'/>
+! +    <qemu:arg value='user,id=adbnet0,hostfwd=tcp::4444-:5555'/>
+! +  </qemu:commandline>
+
+Using the adb tool on your Linux/KVM host, you now see the running VM:
+
+! adb connect localhost:4444
+!
+! adb devices -l
+!   List of devices attached
+!   localhost:4444         device product:android_x86_64 model:Standard_PC__i440FX___PIIX__1996_ device:x86_64 transport_id:4
+
+With the changes, now one can use the previously shown 'adb push' and 'adb shell'
+commands to deploy the Scrcpy server within the VM.
+
+In order to make the Scrcpy server remotely reachable, we have to enable
+port forwarding of the Scrcpy ports, e.g. 27184 as used in this post.
+Adding the following snippet to your VM xml config should do the trick,
+whereby the <IP ADDR> is the remotely available one of your host/hypervisor
+Linux/KVM machine:
+
+!      <qemu:arg value='-device'/>
+!      <qemu:arg value='rtl8139,netdev=adbnet0'/>
+!      <qemu:arg value='-netdev'/>
+! -    <qemu:arg value='user,id=adbnet0,hostfwd=tcp::4444-:5555'/>
+! +    <qemu:arg value='user,id=adbnet0,hostfwd=tcp::4444-:5555,hostfwd=tcp:<IP_ADDR>:27184-:27184'/>
+!    </qemu:commandline>
+!  </domain>
+!
+
+With this change, the Scrcpy client on Genode can connect to the Android VM
+hosted by Linux/KVM.
