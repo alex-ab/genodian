@@ -5,6 +5,9 @@ running an up-to-date Firefox as VM. My main motivation is to have the door to
 the Internet out-of my "work" VM, which contains all sorts of
 sensible data.
 
+A update of this article is available by the newer
+[https://genodians.org/alex-ab/2023-05-09-seoul-23-04 - Firefox and Thunderbird VM] article.
+
 The way
 -------
 

@@ -1,0 +1,64 @@
+                    Firefox &amp; Thunderbird VM for Sculpt 23.04
+
+With the [https://genode.org/download/sculpt - Sculpt 23.04]
+release several ready-to-use VMs powered by Seoul VMM got updated to the
+latest version.
+
+Disposal Firefox VM
+-------------------
+
+The
+[https://www.genodians.org/alex-ab/2019-03-06-disposal-browser-vm - disposal Firefox VM package]
+got updated to the latest [http://tinycorelinux.net - Tinycore] 14 version and
+contains the current Firefox 112 version. Thanks to the added
+[https://genode.org/documentation/release-notes/22.11#Seoul_VMM - Virtio support]
+for audio, gpu(2D) and input in 2021-2022, the user experience got improved
+compared to former Seoul versions. Additionally, the
+[https://github.com/gorhill/uBlock - uBlock Origin Add-on] is now part of the
+VM, to manage/block advertisements effectively.
+
+! +
+!   -> Depot
+!      -> alex-ab
+!        -> Firefox
+!          -> firefox@seoul
+
+
+Thunderbird VM
+--------------
+
+Additionally, I provide a ready-to-use Thunderbird VM based upon Tinycore 14.
+In constrast to the disposal Firefox VM, the Thunderbird VM stores the
+home folder of the VM as a separated virtual disk, so changes can persist.
+During setup of the thunderbird@seoul package, a file_system service is
+requested, where the virtual disk with name block.vdi is looked for. If not
+existent, an empty block.vdi will be imported from the thunderbird@seoul
+package. This virtual disk is mounted as /home/tc in the Thunderbird VM on
+boot.
+
+! +
+!   -> Depot
+!      -> alex-ab
+!        -> Thunderbird
+!          -> thunderbird@seoul
+
+Whenever newer versions of Firefox & Thunderbird appear, I update most the
+time quite promptly.
+
+In case of the Thunderbird VM, the previous mail configuration and downloaded
+mails are kept, due to the virtual disk support. Unfortunately, Thunderbird
+seems to create a new profile after each update, so that your configuration
+seems to be gone.
+
+If this happens to you, open a shell in the Thunderbird VM and issue:
+
+! thunderbird -p
+
+Here you can select your previous profile and make it default again.
+
+If you miss after an update your window decorations & buttons, use
+
+Ctrl-Alt-M
+
+once to twice to get them back.
+
