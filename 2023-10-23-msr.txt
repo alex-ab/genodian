@@ -1,0 +1,111 @@
+    x86 CPU frequency and power steering with Sculpt 23.10
+
+With Sculpt 23.10 the previous
+[https://genodians.org/alex-ab/2023-05-29-freq_power - sneak peek] feature
+got integrated into the Genode base framework and hence is readily
+available with the new Sculpt OS release.
+
+Intro
+-----
+
+As described in the previous sneak peek article, CPU vendors provide features
+for the operating system to influence frequency and power consumption, like Intel
+HWP or AMD pstate to name just some of them. Some of the features require at
+the lowest level access to selected 
+[https://en.wikipedia.org/wiki/Model-specific_register - MSR] CPU registers,
+which can solely by accessed by privileged rdmsr/wrmsr instructions available
+to the kernel.
+
+With this release we add the general support to the Genode base framework,
+to add guarded access to selected MSRs via Genode's system_control RPC of the
+protection domain (PD) session. If the underlying kernel supports this
+feature, as now done for the NOVA kernel, read and write requests are forwarded
+by Genode's roottask to the kernel. A component needs the explicit 
+"managing_system" Genode configuration permission to get access to this
+functionality, which is by default not granted.
+
+The
+[https://github.com/alex-ab/genode-chest/tree/main/src/app/msr - MSR component]
+is an component using the Pd::system_control interface, with which it monitors
+and reports changes of registers for temperature and frequency (AMD & Intel)
+and power consumption (Intel). Additionally, the component can be instructed
+by configuration changes to write some of the registers. Beside the quite
+low level MSR component, a Genode package with an additional graphical
+component is provided to make the interactive usage of the feature user
+friendly. All sources and package recipes are available via
+[https://github.com/alex-ab/genode-chest/tree/main - my github repository].
+
+Usage
+-----
+
+Two MSR packages, one with and without GUI, are provided via the alex-ab depot.
+
+After enabling the 'alex-ab' depot via
+
+! +
+!   -> Depot
+!      -> Selection
+!         -> alex-ab
+
+one can choose one of the two packages to be installed:
+ 
+! +
+!   -> Depot
+!      -> alex-ab
+!         -> CPU frequency and temperature (Intel and AMD)
+!            -> msr tool (with GUI)
+!            -> msr tool (no GUI)
+
+
+During configuration, the resource dialog must be selected and the
+permission "System control" must be granted so that the packages can operate
+properly, as described before in the introduction.
+
+[image msr_config]
+
+If the extra permission got forgotten, the packages will complain, e.g.:
+
+! [init -> runtime -> msr] Error: - CPU or used kernel misses MSR access support
+! [init -> runtime -> msr] Error: - and/or missing 'managing_system' configuration
+
+After the first successful start, the tool will show all CPUs with their
+current frequency and temperature.
+
+[image freq0]
+
+By choosing the button left of the CPUs, the settings menu can be opened and
+closed:
+
+[image msr_rapl]
+
+In the menu you can change the update frequency of the tool with right/left
+mouse clicks on the number buttons.
+If Intel HWP is still off, (if disabled in '/boot/grub/grub.cfg'), you may
+enable it once. According to the Intel specification, it can't be disabled
+afterwards until reset. In the normal settings mode, you can choose between
+performance, balanced and power-saving mode. Your changes will be effective
+as soon as you press the apply to 'all CPUs' button at the bottom.
+If the CPU supports 'Intel Running Average Power Limit Energy Reporting'
+technology, the power consumption for various domains will be shown.
+
+[image freq2]
+
+Additionally, you may enable the 'advanced' settings mode, where more details
+are shown and accessible by toggling the 'custom' buttons. In the
+'advanced' mode you may also apply your changes per 'CPU' instead of
+applying it to all CPUs at once. The advanced mode differs between Intel
+and AMD, because the MSRs are not standardized (beside the frequency monitoring).
+
+Intel:
+
+[image freq3_intel]
+
+AMD:
+
+[image freq3_amd]
+
+When selecting the custom button, you may change even the values in the range
+as specified by the CPUs. For details, at the moment, one have to read the AMD
+and Intel specification, which is left to the advanced user as exercise ...
+
+Happy tuning !
