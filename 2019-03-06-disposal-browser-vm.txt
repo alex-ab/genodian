@@ -167,3 +167,5 @@ don't build anymore with newer Linux kernel versions as used by Tiny Core 10.
 I succeeded to build and re-package the guest additions when using 5.2.* versions,
 but unfortunately the shared folder support stopped to work. Because of that,
 I'm currently settled on Tiny Core 9.
+
+| sculpt vmm seoul vbox vm x86 firefox browser

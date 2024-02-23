@@ -109,3 +109,5 @@ as specified by the CPUs. For details, at the moment, one have to read the AMD
 and Intel specification, which is left to the advanced user as exercise ...
 
 Happy tuning !
+
+| sculpt x86 intel amd

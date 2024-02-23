@@ -124,3 +124,5 @@ functionality and presentation over time with the next Sculpt releases.
 [image balancer_0]
 [image balancer_1]
 [image balancer_2]
+
+| sculpt top

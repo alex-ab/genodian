@@ -113,3 +113,5 @@ The menu_view is a modified version of the menu_view as used also in the
 Leitzentrale and shows the thread, component, configuration and detailed view.
 The 'graph' component is a native GUI/Nitpicker client which presents you
 with the second window about the tracked threads.
+
+| sculpt top trace

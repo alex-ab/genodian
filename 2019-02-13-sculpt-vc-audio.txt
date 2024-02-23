@@ -278,3 +278,5 @@ For interested Genode developers: I adjusted the [https://github.com/alex-ab/gen
 in the Genode's world repository a bit to be really really evil to the audio
 subsystem, e.g. using CPU burners. You may use this simpler scenario then
 Sculpt for experiments.
+
+| sculpt audio

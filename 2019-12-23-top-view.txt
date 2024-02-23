@@ -105,3 +105,5 @@ with the second window about the tracked threads.
 
 The latest source code is available on github/alex-ab in branches named
 sculpt_pkg_top_view_<date>, e.g. sculpt_pkg_top_view_19_12 for the current version.
+
+| sculpt top trace
