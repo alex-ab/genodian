@@ -62,3 +62,4 @@ Ctrl-Alt-M
 
 once to twice to get them back.
 
+| sculpt vmm seoul vm x86 firefox thunderbird audio amd intel browser

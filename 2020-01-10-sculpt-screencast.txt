@@ -69,3 +69,5 @@ and reboot your image.
 !		<!-- <service name="ROM" label_last="vfs.lib.so"> <parent/> </service> -->
 !		<service name="ROM" label_last="init">       <parent/> </service>
 !		...
+
+| sculpt

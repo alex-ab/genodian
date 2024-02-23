@@ -81,3 +81,5 @@ purposes. Unfortunately, the Intel AMT KVM server speaks the VNC 4.0 protocol
 version and the client supports solely 3.8. A test drive of the unmodified
 SDL VNC client on Linux with the target AMT KVM machine failed with the same
 symptom as our port on Sculpt OS.
+
+| sculpt vnc

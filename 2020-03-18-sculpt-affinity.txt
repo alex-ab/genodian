@@ -46,3 +46,5 @@ for width 1-4 (depending on xpos), for ypos 0 and height 1.
 
 In the future we may make this affinity configuration step available by some
 graphical tooling to ease life.
+
+| sculpt vmm seoul vm x86 firefox top browser

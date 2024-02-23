@@ -91,3 +91,5 @@ accessed via a button in the battery GUI.
 
 Please note, since the two packages contain the same ACPI driver, you can NOT
 run them in parallel. Just use one package at a time.
+
+| sculpt vmm seoul vbox vm x86 firefox acpica browser

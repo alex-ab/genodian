@@ -153,3 +153,5 @@ Linux/KVM machine:
 
 With this change, the Scrcpy client on Genode can connect to the Android VM
 hosted by Linux/KVM.
+
+| linux qemu android scrcpy
