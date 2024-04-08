@@ -122,7 +122,7 @@ interruptions, which tend to happen several times to me. The main reason is
 that the audio components are running as part of the runtime subsystem which
 are prioritized below the Leitzentrale and the Drivers subsystems. (See
 [https://genode.org/documentation/articles/sculpt-vc#System_overview - system overview of Sculpt] for
-details to the subsystems.
+details to the subsystems).
 
 Sculpt VC is running on the NOVA kernel, which uses a pre-emptive fixed
 priority round robin scheduler. That means for our audio use-case, each 
