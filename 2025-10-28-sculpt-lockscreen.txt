@@ -1,0 +1,80 @@
+                    Lock-screen component for Sculpt 25.10
+
+When leaving your notebook, locking your displays of your running OS is crucial
+to avoid any kind of harm - to your system, to your data, to your employer ...
+Same applies to when running Sculpt OS, which provides all features, just a
+lock screen component needs to be configured.
+
+Since the very early beginnings of Sculpt, I
+[https://genodians.org/alex-ab/2019-01-29-sculpt-lockscreen - provide] a
+very simple lockscreen component, which over this year got a more
+user friendly appearance then before.
+
+If interested, you can find the component in my depot, available via
+Sculpt's "+" symbol in the Leitzentrale view:
+
+! +
+!   -> Add
+!      -> alex-ab depot URL
+!         -> Update Index (enable networking beforehand)
+!            -> GUI locking ...
+!              -> gui lock (2025-xx-xx) ...
+
+After downloading and installing, you need to configure it. As shown in the
+picture, the GUI routing have to go the "desktop lock screen". This is a
+special domain of the GUI multiplexer nitpicker in the Sculpt OS image, which
+will show the content of the component at one of the top most layers once
+activated.
+
+[image scrlck1]
+
+The platform information ROM is merely used to read out and present the kernel
+name to you, which is nice if you switch between Sculpt/kernel versions regularly,
+e.g. when using a multi Sculpt@kernel image as shown and available via my 
+[https://archive.fosdem.org/2025/schedule/event/fosdem-2025-5768-celebrating-kernel-diversity-with-genode - Fosdem 2025]
+talk.
+
+If used without special configuration, the component will ask for your
+password:
+
+[image scrlck2]
+
+It will record your input and keep it just in memory.
+
+[image scrlck3]
+
+Next time you press a key, the component will ask for the password and
+exit when the input matches the previously recorded password.
+
+[image scrlck4]
+
+You may create an own launcher and add additional configuration parameter:
+
+[image scrlck5]
+
+* If you provide a password in the configuration, the recording is skipped on each activation.
+* You may adjust the creeting message at will via the "name" attribute.
+* You may also configure a lockscreen global-key, on which the component will
+  be activated.
+
+You have to configure the key in your launcher as shown and in the
+/config/nitpicker configuration:
+
+[image scrlck6]
+
+The used label in the global-key node has to match the label as used in the
+policy node - so "lock_screen" - independent of the actual started component name.
+
+With the presented configuration you are now able to configure a lock screen
+component for Sculpt 25.10 which can be activated via a global-key,
+e.g. F11.
+
+Happy sculpting!
+
+Credits
+-------
+
+The source code repository is available via [https://github.com/alex-ab/genode-chest/tree/sculpt_25_10/src/app/gui_lock - github]. The used avatar by the gui_lock component
+is licensed under the Creative Commons Zero license, see [https://github.com/alex-ab/genode-chest/blob/sculpt_25_10/src/app/gui_lock/icon/url.txt - for more information].
+
+| sculpt x86 lockscreen
