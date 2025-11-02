@@ -1,0 +1,77 @@
+              Experimental multi kernel Sculpt 25.10 PC image
+
+With the release of [https://genode.org/download/sculpt - Sculpt 25.10] I take the opportunity to publish
+also a multi-kernel image version of Sculpt 25.10. Even so not supported
+officially, the other capability based microkernels of the Genode OS framework
+are in a principal working state also to power Sculpt OS. I crafted and
+uploaded an [https://depot.genode.org/alex-ab/images/sculpt_25_10_multi_kernel.img - image]
+for interested people, which contains Sculpt 25.10
+with the following kernel combinations
+
+* Genode's NOVA kernel version (same as the official PC release)
+* Genode's own kernel development, named -hw-
+* [https://docs.sel4.systems/releases/sel4/13.0.0.html - seL4 13.0] (mid 2024 release) based kernel version
+* [https://hypervisor.org/ - NOVA] 24.52 upstream (end ~2024) based kernel version, named -NOVAe-
+* [https://os.inf.tu-dresden.de/fiasco/ - Fiasco.OC] kernel (~2019 version)
+
+Additionally, this image and article kind of wrap up my year of spreading 
+Genode's kernel diversity word ;). It started with a short presentation at the
+[https://ukvly.org - Systems Meetup Dresden] taking place at the
+TU Dresden/Germany in January 2025, where I run Sculpt OS live on Fiasco.OC
+during a short presentation. The next event was my presentation at the
+open source conference
+[https://archive.fosdem.org/2025/schedule/event/fosdem-2025-5768-celebrating-kernel-diversity-with-genode - Fosdem 2025]
+in Brussels/Belgium in Februray 2025 running Sculpt live on
+NOVAe and finally presenting [https://www.youtube.com/watch?v=N624i4X1UDw - Sculpt on seL4 live]
+during my presentation at the
+[https://sel4.systems/Summit/2025/abstracts2025.html#a-sculpt-os - seL4 summit 2025] in Prague/Czech in September.
+
+! https://depot.genode.org/alex-ab/images/sculpt_25_10_multi_kernel.img
+! sha256 8f2ff71e94b920c0419eaa1d6e27409a5359262c193fc59221ca732eb027438a
+
+The [https://depot.genode.org/alex-ab/images/sculpt_25_10_multi_kernel.img - image] is a live one, so there is no need for any installation on your PC.
+You can copy the image easily to a free available USB stick. Please follow the
+[https://genode.org/download/sculpt - official Sculpt documentation] for
+help and
+[https://genode.org/documentation/articles/sculpt-25-10 - general requirements]
+regarding the hardware. Once started, you will be presented with a list
+of options presented by the GRUB2 boot loader.
+
+[image sculpt_25_10_multi]
+
+After you selected an entry, the system boots Sculpt with the choosen kernel.
+Ideally, if successful, you end up in the Leitzentrale. In the right corner
+of the background image the used kernel will be shown. You may also inspect the boot log for
+kernel and core (roottask) specific messages during early boot. Beside that,
+no optical visible difference is expected across the Sculpt@kernel versions.
+
+[image sculpt_25_10_multi_log]
+
+You may take the following command line as starting point for experimenting
+with Qemu, even so it is not the most efficient nor recommended way:
+
+! qemu-system-x86_64 -display sdl -cpu Skylake-Client -machine q35 -m 3072
+!                    -drive format=raw,file=sculpt_25_10_multi_kernel.img
+!                    -netdev user,id=net0 -device e1000,netdev=net0
+!                    -M q35,accel=kvm,kernel-irqchip=split
+
+You may also enable serial debug output, e.g. via '-serial stdio', if desired.
+
+As a note of warning: not all Sculpt@kernel combinations are expected nor
+do work equally well on a principal supported PC. The reasons are manifold,
+reaching from missing features (high probability) of a specific combination,
+funding, time, manpower, interest ... and so on.
+
+Personally, I was able to start the image with all Sculpt/kernel combinations
+on a Lenovo T460p and Lenovo T490 notebook. The used
+[https://github.com/alex-ab/genode/commits/sculpt_25_10_multi_kernel/ - branch]
+to create the image is available via github.
+
+So, wish you a happy multi kernel sculpting time.
+
+Image history
+-------------
+! sha256 4a6fc27fec45909dbab7d202bd7e61a3be5610630891789e3dacd1f90cbb512a
+!  Image contained a bug for base-foc regarding MSI allocation
+
+| sculpt x86 kernel amd intel demo qemu
